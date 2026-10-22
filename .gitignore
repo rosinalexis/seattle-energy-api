@@ -1,0 +1,20 @@
+# Environnement Python
+.venv/
+__pycache__/
+*.py[cod]
+
+# Secrets : jamais dans le dépôt
+.env
+
+# Caches des outils
+.ruff_cache/
+.pytest_cache/
+
+# Rapports de couverture (régénérés à chaque lancement)
+.coverage
+htmlcov/
+
+# Éditeurs et système
+.vscode/
+.idea/
+.DS_Store
