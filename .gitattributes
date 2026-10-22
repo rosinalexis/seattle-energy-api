@@ -1,0 +1,2 @@
+# Fins de ligne LF dans le dépôt, quel que soit l'OS : la CI et Docker tournent sous Linux
+* text=auto eol=lf
