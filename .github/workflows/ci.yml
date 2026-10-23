@@ -13,6 +13,10 @@ permissions:
 
 jobs:
   quality:
+    # Un nom de check par événement : seul « quality (pull_request) », qui teste le
+    # résultat de la fusion, est exigé pour fusionner. Avec un nom commun, le run
+    # « push » (déjà vert) suffirait et la fusion n'attendrait pas ce test.
+    name: quality (${{ github.event_name }})
     runs-on: ubuntu-latest
     # L'énoncé alerte sur les pipelines de plus de 10 minutes : on coupe avant.
     timeout-minutes: 10

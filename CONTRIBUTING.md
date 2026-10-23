@@ -79,7 +79,8 @@ Le workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) lance le job 
 Règles appliquées sur `dev`, `test` et `main` (ruleset GitHub) :
 
 - pas de push direct : tout passe par une pull request ;
-- le job `quality` doit être vert pour fusionner ;
+- le check `quality (pull_request)` doit être vert pour fusionner : c'est lui qui teste le résultat
+  de la fusion (le check `quality (push)` ne teste que la branche seule) ;
 - pas de suppression de branche ni de réécriture d'historique (force push) ;
 - fusion par merge commit uniquement.
 
