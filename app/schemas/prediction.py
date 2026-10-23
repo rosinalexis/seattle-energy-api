@@ -104,6 +104,8 @@ class Batiment(BaseModel):
 class Prediction(BaseModel):
     """Réponse de l'endpoint de prédiction."""
 
+    id: int = Field(description="Identifiant de la prédiction en base, pour la retrouver.")
+
     consommation_kbtu: float = Field(
         description="Consommation d'énergie annuelle prédite, en kBtu."
     )

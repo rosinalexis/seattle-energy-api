@@ -8,16 +8,19 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.config import VERSION, get_settings
+from app.database import get_engine
 from app.ml.modele import charger_modele
 from app.routers import prediction
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Chargés au démarrage : si la clé d'API ou le modèle manque, l'API refuse de démarrer
-    # au lieu de répondre une erreur 500 à la première requête.
+    # Vérifiés au démarrage : si la configuration, le modèle ou la base manque, l'API refuse
+    # de démarrer au lieu de répondre une erreur 500 à la première requête.
     get_settings()
     charger_modele()
+    with get_engine().connect():
+        pass
     yield
 
 

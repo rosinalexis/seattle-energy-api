@@ -19,6 +19,9 @@ ARTIFACTS_DIR = PROJECT_ROOT / "artifacts"
 MODEL_FILE = ARTIFACTS_DIR / "modele.joblib"
 METRICS_FILE = ARTIFACTS_DIR / "metriques.json"
 
+# Exemples d'entrées et de sorties du modèle, exportés depuis la base (livrable documenté).
+EXEMPLES_FILE = PROJECT_ROOT / "docs" / "exemples" / "predictions.csv"
+
 # Cible : la consommation brute relevée en 2016, en kBtu.
 TARGET = "SiteEnergyUse(kBtu)"
 
@@ -46,6 +49,23 @@ class Settings(BaseSettings):
     # Clé que les clients envoient dans l'en-tête X-API-Key. 32 caractères minimum : une clé
     # vide (secret oublié) ou trop courte (devinable) empêche l'API de démarrer.
     api_key: str = Field(min_length=32)
+
+    # Connexion de l'API à PostgreSQL, avec un rôle aux droits restreints (créé par
+    # scripts/create_db.py) : jamais avec le compte administrateur.
+    database_url: str
+
+
+class ReglagesAdmin(BaseSettings):
+    """Réglages des scripts d'administration de la base (création, chargement des données).
+
+    Séparés de ceux de l'API : l'API ne reçoit jamais les identifiants administrateur.
+    """
+
+    model_config = SettingsConfigDict(env_file=PROJECT_ROOT / ".env", extra="ignore")
+
+    database_admin_url: str
+    # L'URL de l'API indique le rôle restreint à créer et son mot de passe.
+    database_url: str
 
 
 @lru_cache

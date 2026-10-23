@@ -1,20 +1,22 @@
 [project]
 name = "seattle-energy-api"
-version = "0.3.0"
+version = "0.4.0"
 description = "API de prédiction de la consommation d'énergie des bâtiments de Seattle (OpenClassrooms - Projet 5)"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.161.1",
     "joblib>=1.6.0",
     "pandas>=3.1.0",
+    "psycopg[binary]>=3.3.6",
     "pydantic-settings>=2.16.1",
     "scikit-learn>=1.9.1",
+    "sqlalchemy>=2.1.6",
     "uvicorn>=0.54.0",
 ]
 
 [dependency-groups]
 dev = [
-    "httpx>=0.28.1",
+    "httpx2>=2.16.0",
     "pytest>=9.1.1",
     "pytest-cov>=7.1.0",
     "ruff>=0.17.2",
@@ -26,3 +28,6 @@ line-length = 100
 [tool.pytest.ini_options]
 # Ajoute la racine du projet aux chemins d'import, pour que les tests trouvent le package app.
 pythonpath = ["."]
+# Mode recommandé par pytest : autorise deux fichiers de test du même nom dans des dossiers
+# différents (tests/unit/services/test_prediction.py et tests/functional/test_prediction.py).
+addopts = "--import-mode=importlib"
