@@ -26,3 +26,6 @@ line-length = 100
 [tool.pytest.ini_options]
 # Ajoute la racine du projet aux chemins d'import, pour que les tests trouvent le package app.
 pythonpath = ["."]
+# Mode recommandé par pytest : autorise deux fichiers de test du même nom dans des dossiers
+# différents (tests/unit/services/test_prediction.py et tests/functional/test_prediction.py).
+addopts = "--import-mode=importlib"
