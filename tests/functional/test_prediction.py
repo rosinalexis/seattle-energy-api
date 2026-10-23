@@ -2,12 +2,34 @@
 
 import pytest
 
+from app.models import PredictionEntree, PredictionSortie
+
 
 def test_predict_renvoie_une_consommation_positive(client, batiment, en_tetes):
     reponse = client.post("/predict", json=batiment, headers=en_tetes)
 
     assert reponse.status_code == 200
     assert reponse.json()["consommation_kbtu"] > 0
+
+
+def test_predict_enregistre_l_entree_et_la_sortie_en_base(client, batiment, en_tetes, session):
+    reponse = client.post("/predict", json=batiment, headers=en_tetes)
+
+    # L'identifiant renvoyé au client retrouve la prédiction en base, reliée à son entrée.
+    sortie = session.get(PredictionSortie, reponse.json()["id"])
+    assert sortie.consommation_kbtu == reponse.json()["consommation_kbtu"]
+    assert isinstance(sortie.entree, PredictionEntree)
+    assert sortie.entree.quartier == batiment["quartier"]
+
+
+def test_une_requete_refusee_n_est_pas_enregistree(client, batiment, en_tetes, session):
+    nb_entrees_avant = session.query(PredictionEntree).count()
+    batiment["quartier"] = "PARIS"
+
+    client.post("/predict", json=batiment, headers=en_tetes)
+
+    # Une donnée invalide n'atteint ni le modèle ni la base.
+    assert session.query(PredictionEntree).count() == nb_entrees_avant
 
 
 def test_predict_refuse_une_requete_sans_cle(client, batiment):
