@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  # À chaque push, sur n'importe quelle branche : retour rapide pendant le travail.
+  push:
+  # Sur les PR vers les branches d'environnement : teste le résultat de la fusion.
+  pull_request:
+    branches: [dev, test, main]
+
+# Moindre privilège : ce job lit le code, il n'a besoin d'aucun droit d'écriture.
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    # L'énoncé alerte sur les pipelines de plus de 10 minutes : on coupe avant.
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.2
+      # --locked : échoue si uv.lock n'est plus synchronisé avec pyproject.toml.
+      - run: uv sync --locked
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run pytest --cov=app --cov-report=term-missing
