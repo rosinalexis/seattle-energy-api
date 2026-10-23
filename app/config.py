@@ -4,6 +4,7 @@ import tomllib
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Calculé depuis l'emplacement de CE fichier, et non depuis le dossier courant :
@@ -42,8 +43,9 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(env_file=PROJECT_ROOT / ".env", extra="ignore")
 
-    # Clé que les clients envoient dans l'en-tête X-API-Key.
-    api_key: str
+    # Clé que les clients envoient dans l'en-tête X-API-Key. 32 caractères minimum : une clé
+    # vide (secret oublié) ou trop courte (devinable) empêche l'API de démarrer.
+    api_key: str = Field(min_length=32)
 
 
 @lru_cache

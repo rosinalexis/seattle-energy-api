@@ -8,7 +8,7 @@ from app.main import app
 from app.ml.modele import charger_modele
 from app.schemas.prediction import Batiment
 
-CLE_TEST = "cle-de-test"
+CLE_TEST = "cle-de-test-assez-longue-pour-etre-acceptee"
 
 
 @pytest.fixture
