@@ -1,7 +1,11 @@
 """Tests fonctionnels de POST /predict, à travers HTTP comme le ferait un vrai client."""
 
 import pytest
+from fastapi.testclient import TestClient
 
+from app.database import get_session
+from app.main import app
+from app.ml.modele import charger_modele
 from app.models import PredictionEntree, PredictionSortie
 
 
@@ -88,3 +92,35 @@ def test_predict_refuse_un_champ_inconnu(client, batiment, en_tetes):
     reponse = client.post("/predict", json=batiment, headers=en_tetes)
 
     assert reponse.status_code == 422
+
+
+def test_un_json_mal_forme_est_refuse(client, en_tetes):
+    reponse = client.post(
+        "/predict", content="{pas du json", headers={**en_tetes, "Content-Type": "application/json"}
+    )
+
+    assert reponse.status_code == 422
+
+
+def test_predict_n_accepte_que_post(client, en_tetes):
+    reponse = client.get("/predict", headers=en_tetes)
+
+    assert reponse.status_code == 405
+
+
+def test_une_panne_du_modele_renvoie_500_et_la_tentative_reste_tracee(
+    session, batiment, en_tetes, modele_en_panne
+):
+    app.dependency_overrides[get_session] = lambda: session
+    app.dependency_overrides[charger_modele] = lambda: modele_en_panne
+    nb_entrees_avant = session.query(PredictionEntree).count()
+    try:
+        # raise_server_exceptions=False : le client reçoit la réponse 500, comme un vrai client,
+        # au lieu de voir l'exception remonter dans le test.
+        with TestClient(app, raise_server_exceptions=False) as client:
+            reponse = client.post("/predict", json=batiment, headers=en_tetes)
+    finally:
+        app.dependency_overrides.clear()
+
+    assert reponse.status_code == 500
+    assert session.query(PredictionEntree).count() == nb_entrees_avant + 1

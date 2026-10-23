@@ -1,6 +1,6 @@
 [project]
 name = "seattle-energy-api"
-version = "0.4.0"
+version = "0.5.0"
 description = "API de prédiction de la consommation d'énergie des bâtiments de Seattle (OpenClassrooms - Projet 5)"
 requires-python = ">=3.12"
 dependencies = [
@@ -31,3 +31,9 @@ pythonpath = ["."]
 # Mode recommandé par pytest : autorise deux fichiers de test du même nom dans des dossiers
 # différents (tests/unit/services/test_prediction.py et tests/functional/test_prediction.py).
 addopts = "--import-mode=importlib"
+
+[tool.coverage.report]
+# Sous ce seuil, pytest échoue : la couverture ne peut pas baisser sans que la CI le signale.
+# 95 et non 100 : une marge pour du code défensif, sans pousser à écrire des tests artificiels.
+fail_under = 95
+show_missing = true

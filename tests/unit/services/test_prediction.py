@@ -34,15 +34,11 @@ def test_predire_et_enregistrer_trace_l_entree_et_la_sortie(batiment, modele, se
     assert entree.cree_le is not None
 
 
-def test_l_entree_est_tracee_meme_si_le_modele_echoue(batiment, session):
-    class ModeleEnPanne:
-        def predict(self, donnees):
-            raise RuntimeError("panne du modèle")
-
+def test_l_entree_est_tracee_meme_si_le_modele_echoue(batiment, session, modele_en_panne):
     nb_entrees_avant = session.query(PredictionEntree).count()
 
     with pytest.raises(RuntimeError):
-        predire_et_enregistrer(Batiment(**batiment), ModeleEnPanne(), session)
+        predire_et_enregistrer(Batiment(**batiment), modele_en_panne, session)
 
     assert session.query(PredictionEntree).count() == nb_entrees_avant + 1
     # La tentative est en base, sans sortie.

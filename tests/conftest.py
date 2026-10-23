@@ -62,3 +62,15 @@ def batiment() -> dict:
 def modele():
     """Le modèle entraîné par scripts/train_model.py."""
     return charger_modele()
+
+
+class ModeleEnPanne:
+    """Faux modèle qui échoue à chaque prédiction, pour tester les scénarios d'erreur."""
+
+    def predict(self, donnees):
+        raise RuntimeError("panne du modèle")
+
+
+@pytest.fixture
+def modele_en_panne() -> ModeleEnPanne:
+    return ModeleEnPanne()
