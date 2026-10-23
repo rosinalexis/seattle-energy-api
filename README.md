@@ -44,9 +44,9 @@ uv run python -c "import secrets; print(secrets.token_urlsafe(32))"   # à colle
 
 | Variable  | Rôle                                                     |
 |-----------|----------------------------------------------------------|
-| `API_KEY` | clé que les clients envoient dans l'en-tête `X-API-Key`  |
+| `API_KEY` | clé que les clients envoient dans l'en-tête `X-API-Key` (32 caractères minimum) |
 
-Le fichier `.env` n'est jamais commité. Sans `API_KEY`, l'API refuse de démarrer.
+Le fichier `.env` n'est jamais commité. Sans `API_KEY` valide, l'API refuse de démarrer.
 
 ## Utilisation
 
@@ -117,11 +117,51 @@ Le domaine accepté reprend celui des données d'entraînement (13 quartiers, 23
 1900 à 2016, 1 à 76 étages…) : en dehors, le modèle n'a jamais rien vu et sa prédiction ne vaudrait
 rien. Le détail de chaque champ est dans Swagger.
 
+## Déploiement
+
+L'API est livrée sous forme d'**image Docker**, publiée automatiquement sur GitHub Container
+Registry (GHCR) après chaque fusion dans une branche d'environnement :
+
+| Branche | Environnement GitHub | Image                                                  |
+|---------|----------------------|--------------------------------------------------------|
+| `dev`   | `dev`                | `ghcr.io/rosinalexis/seattle-energy-api:dev`           |
+| `test`  | `test`               | `ghcr.io/rosinalexis/seattle-energy-api:test`          |
+| `main`  | `prod`               | `ghcr.io/rosinalexis/seattle-energy-api:prod`          |
+
+Chaque image est aussi étiquetée avec le hash du commit dont elle est issue. Avant publication, la CI
+lance l'image et l'appelle pour de vrai (test de fumée), avec la clé d'API de l'environnement.
+
+Lancer la version de production sur n'importe quelle machine équipée de Docker :
+
+```bash
+docker run -d -p 8000:8000 --env-file .env ghcr.io/rosinalexis/seattle-energy-api:prod
+```
+
+Ou construire l'image en local :
+
+```bash
+docker build -t seattle-energy-api .
+docker run -d -p 8000:8000 --env-file .env seattle-energy-api
+```
+
+L'image contient le modèle, entraîné pendant sa construction ; elle ne contient ni le `.env`, ni les
+tests, ni les outils de développement. L'API y tourne sous un utilisateur sans privilèges, et Docker
+surveille `/health` (healthcheck).
+
+**Pourquoi pas d'hébergement en ligne ?** La piste naturelle, Hugging Face Spaces, exige désormais un
+abonnement payant pour les Spaces Docker
+([documentation, vérifiée le 23/10/2026](https://huggingface.co/docs/hub/spaces-overview)). Le
+livrable de déploiement est donc l'image publiée : elle se lance à l'identique sur n'importe quel
+hébergeur Docker.
+
 ## Sécurité
 
 - **Authentification** par clé d'API dans l'en-tête `X-API-Key`, comparée en temps constant
   (`secrets.compare_digest`) pour empêcher de la deviner en mesurant les temps de réponse.
-- **Secrets** hors du code : `.env` en local (ignoré par Git), secrets d'environnement GitHub en CI.
+- **Clé robuste obligatoire** : une clé absente ou de moins de 32 caractères bloque le démarrage.
+- **Secrets** hors du code : `.env` en local (ignoré par Git et par Docker), secrets des
+  environnements GitHub `dev`, `test` et `prod` en CI, chacun limité à sa branche.
+- **Conteneur sans privilèges** : l'API ne tourne pas en root.
 - **Validation stricte des entrées** (Pydantic) : types, bornes, listes fermées, champs inconnus
   refusés.
 - **CI en lecture seule** (`permissions: contents: read`).
