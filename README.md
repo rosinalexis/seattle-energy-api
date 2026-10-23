@@ -32,11 +32,112 @@ remplacent le `requirements.txt`. Si un outil en exige un, on le génère depuis
 uv export --format requirements-txt > requirements.txt
 ```
 
+### Configuration
+
+Les réglages propres à chaque environnement sont lus dans les variables d'environnement. En local,
+copier le modèle et renseigner une vraie clé :
+
+```bash
+cp .env.example .env
+uv run python -c "import secrets; print(secrets.token_urlsafe(32))"   # à coller dans API_KEY
+```
+
+| Variable  | Rôle                                                     |
+|-----------|----------------------------------------------------------|
+| `API_KEY` | clé que les clients envoient dans l'en-tête `X-API-Key`  |
+
+Le fichier `.env` n'est jamais commité. Sans `API_KEY`, l'API refuse de démarrer.
+
+## Utilisation
+
+### 1. Entraîner le modèle
+
+```bash
+uv run python -m scripts.train_model
+```
+
+Le script reproduit le nettoyage et le modèle du projet 3 (random forest, 1 582 bâtiments), puis
+écrit `artifacts/modele.joblib` et ses scores sur le jeu de test dans `artifacts/metriques.json`.
+Le modèle n'est pas versionné : il se régénère à l'identique (données, code, versions et graine
+aléatoire fixés).
+
+| Métrique (317 bâtiments de test) | Valeur        |
+|----------------------------------|---------------|
+| R²                               | 0,711         |
+| MAE                              | 3,75 M kBtu   |
+| Erreur relative médiane          | 39,8 %        |
+
+### 2. Lancer l'API
+
+```bash
+uv run uvicorn app.main:app --reload
+```
+
+Documentation interactive (Swagger) : <http://localhost:8000/docs>.
+
+### 3. Appeler l'API
+
+| Méthode | Route      | Authentification | Rôle                                         |
+|---------|------------|------------------|----------------------------------------------|
+| `GET`   | `/health`  | non              | vérifier que l'API répond                    |
+| `POST`  | `/predict` | `X-API-Key`      | prédire la consommation annuelle d'un bâtiment |
+
+```bash
+curl -X POST http://localhost:8000/predict \
+  -H "X-API-Key: <votre clé>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "annee_construction": 1927,
+    "nombre_batiments": 1,
+    "nombre_etages": 12,
+    "surface_batie": 88434,
+    "surface_parking": 0,
+    "quartier": "DOWNTOWN",
+    "type_usage": "Hotel",
+    "nombre_usages": 1,
+    "part_usage_principal": 1.0,
+    "utilise_gaz": true,
+    "utilise_vapeur": true
+  }'
+```
+
+```json
+{"consommation_kbtu": 7113386.17}
+```
+
+Codes de réponse :
+
+| Code  | Cas                                                                          |
+|-------|------------------------------------------------------------------------------|
+| `200` | prédiction réussie                                                           |
+| `401` | clé d'API absente ou invalide                                                |
+| `422` | donnée invalide ou hors du domaine du modèle ; le message désigne le champ   |
+
+Le domaine accepté reprend celui des données d'entraînement (13 quartiers, 23 types d'usage, années
+1900 à 2016, 1 à 76 étages…) : en dehors, le modèle n'a jamais rien vu et sa prédiction ne vaudrait
+rien. Le détail de chaque champ est dans Swagger.
+
+## Sécurité
+
+- **Authentification** par clé d'API dans l'en-tête `X-API-Key`, comparée en temps constant
+  (`secrets.compare_digest`) pour empêcher de la deviner en mesurant les temps de réponse.
+- **Secrets** hors du code : `.env` en local (ignoré par Git), secrets d'environnement GitHub en CI.
+- **Validation stricte des entrées** (Pydantic) : types, bornes, listes fermées, champs inconnus
+  refusés.
+- **CI en lecture seule** (`permissions: contents: read`).
+
 ## Structure du dépôt
 
 ```
 seattle-energy-api/
 ├── app/          # code de l'API (architecture en couches)
+│   ├── main.py       # création de l'application, routes de supervision
+│   ├── config.py     # constantes, chemins et réglages (une seule source de vérité)
+│   ├── securite.py   # authentification par clé d'API
+│   ├── routers/      # endpoints HTTP (contrôleurs)
+│   ├── schemas/      # contrats d'entrée et de sortie (Pydantic)
+│   ├── services/     # logique métier, indépendante de HTTP
+│   └── ml/           # préparation des données et pipeline du modèle
 ├── scripts/      # scripts lancés à la main : entraînement, création de la base…
 ├── tests/        # tests unitaires et fonctionnels
 ├── data/raw/     # relevé 2016 de Seattle, jamais modifié
