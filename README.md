@@ -136,6 +136,19 @@ Le domaine accepté reprend celui des données d'entraînement (13 quartiers, 23
 1900 à 2016, 1 à 76 étages…) : en dehors, le modèle n'a jamais rien vu et sa prédiction ne vaudrait
 rien. Le détail de chaque champ est dans Swagger.
 
+## Tests
+
+```bash
+docker compose up -d db                                  # les tests utilisent un vrai PostgreSQL
+uv run pytest --cov=app                                  # 98 tests, couverture 100 % (minimum 95 %)
+uv run pytest tests/unit                                 # tests unitaires seuls
+uv run pytest tests/functional                           # tests fonctionnels (API) seuls
+```
+
+La suite vérifie aussi les **performances du modèle** (R² ≥ 0,70 et erreur relative médiane ≤ 40 %
+sur le jeu de test), sa **reproductibilité** et son **comportement** sur des cas d'usage réels.
+Stratégie détaillée et rapports : [CONTRIBUTING.md](CONTRIBUTING.md#code).
+
 ## Déploiement
 
 L'API est livrée sous forme d'**image Docker**, publiée automatiquement sur GitHub Container

@@ -50,7 +50,20 @@ jobs:
       # Mise en place de la base comme en production : vérifie aussi que les scripts marchent.
       - run: uv run python -m scripts.create_db
       - run: uv run python -m scripts.load_dataset
-      - run: uv run pytest --cov=app --cov-report=term-missing
+      # Échoue si la couverture passe sous le seuil fixé dans pyproject.toml (fail_under).
+      - run: >-
+          uv run pytest --cov=app --cov-report=term-missing
+          --cov-report=html:rapports/couverture --junitxml=rapports/tests.xml
+      # always() : les rapports sont publiés même si des tests échouent, c'est là qu'ils servent.
+      - name: Résumé de la couverture sur la page du run
+        if: always()
+        run: uv run coverage report --format=markdown >> "$GITHUB_STEP_SUMMARY"
+      - name: Publier les rapports de tests et de couverture
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: rapports-${{ github.event_name }}
+          path: rapports/
 
   deploy:
     # Uniquement après une fusion dans une branche d'environnement, et si la qualité est validée.

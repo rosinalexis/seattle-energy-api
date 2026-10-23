@@ -8,6 +8,10 @@ from sqlalchemy.orm import DeclarativeBase, Session
 
 from app.config import get_settings
 
+# Délai maximal pour joindre la base, en secondes. Sans lui, une base injoignable bloque
+# le démarrage plus de deux minutes sous Windows (mesuré : 130 s) au lieu d'échouer vite.
+DELAI_CONNEXION = 5
+
 
 class Base(DeclarativeBase):
     """Classe mère des tables : SQLAlchemy y recense toutes les tables du projet."""
@@ -18,7 +22,11 @@ def get_engine() -> Engine:
     """Moteur de connexion, créé une seule fois : il gère un pool de connexions réutilisées."""
     # pool_pre_ping : vérifie qu'une connexion du pool est encore vivante avant de s'en
     # servir (la base a pu redémarrer entre deux requêtes).
-    return create_engine(get_settings().database_url, pool_pre_ping=True)
+    return create_engine(
+        get_settings().database_url,
+        pool_pre_ping=True,
+        connect_args={"connect_timeout": DELAI_CONNEXION},
+    )
 
 
 def get_session() -> Iterator[Session]:
