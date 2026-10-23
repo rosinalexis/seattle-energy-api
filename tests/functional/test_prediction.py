@@ -1,21 +1,10 @@
-"""Tests des endpoints, à travers HTTP comme le ferait un vrai client."""
+"""Tests fonctionnels de POST /predict, à travers HTTP comme le ferait un vrai client."""
 
 import pytest
 
-from tests.conftest import CLE_TEST
 
-EN_TETES = {"X-API-Key": CLE_TEST}
-
-
-def test_health_repond_sans_authentification(client):
-    reponse = client.get("/health")
-
-    assert reponse.status_code == 200
-    assert reponse.json() == {"statut": "ok"}
-
-
-def test_predict_renvoie_une_consommation_positive(client, batiment):
-    reponse = client.post("/predict", json=batiment, headers=EN_TETES)
+def test_predict_renvoie_une_consommation_positive(client, batiment, en_tetes):
+    reponse = client.post("/predict", json=batiment, headers=en_tetes)
 
     assert reponse.status_code == 200
     assert reponse.json()["consommation_kbtu"] > 0
@@ -53,27 +42,27 @@ def test_predict_refuse_une_mauvaise_cle(client, batiment):
         ("part_usage_principal", 0),
     ],
 )
-def test_predict_refuse_une_valeur_invalide(client, batiment, champ, valeur):
+def test_predict_refuse_une_valeur_invalide(client, batiment, en_tetes, champ, valeur):
     batiment[champ] = valeur
 
-    reponse = client.post("/predict", json=batiment, headers=EN_TETES)
+    reponse = client.post("/predict", json=batiment, headers=en_tetes)
 
     assert reponse.status_code == 422
     # Le message d'erreur désigne le champ fautif.
     assert reponse.json()["detail"][0]["loc"][-1] == champ
 
 
-def test_predict_refuse_un_champ_manquant(client, batiment):
+def test_predict_refuse_un_champ_manquant(client, batiment, en_tetes):
     del batiment["quartier"]
 
-    reponse = client.post("/predict", json=batiment, headers=EN_TETES)
+    reponse = client.post("/predict", json=batiment, headers=en_tetes)
 
     assert reponse.status_code == 422
 
 
-def test_predict_refuse_un_champ_inconnu(client, batiment):
+def test_predict_refuse_un_champ_inconnu(client, batiment, en_tetes):
     batiment["couleur"] = "bleu"
 
-    reponse = client.post("/predict", json=batiment, headers=EN_TETES)
+    reponse = client.post("/predict", json=batiment, headers=en_tetes)
 
     assert reponse.status_code == 422

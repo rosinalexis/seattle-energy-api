@@ -24,6 +24,12 @@ def client(monkeypatch):
 
 
 @pytest.fixture
+def en_tetes() -> dict:
+    """En-têtes d'une requête authentifiée avec la clé de test."""
+    return {"X-API-Key": CLE_TEST}
+
+
+@pytest.fixture
 def batiment() -> dict:
     """Un bâtiment valide : l'exemple affiché dans Swagger, pour ne pas le définir deux fois."""
     return dict(Batiment.model_config["json_schema_extra"]["examples"][0])

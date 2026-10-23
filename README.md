@@ -179,7 +179,9 @@ seattle-energy-api/
 │   ├── services/     # logique métier, indépendante de HTTP
 │   └── ml/           # préparation des données et pipeline du modèle
 ├── scripts/      # scripts lancés à la main : entraînement, création de la base…
-├── tests/        # tests unitaires et fonctionnels
+├── tests/
+│   ├── unit/         # une fonction à la fois (même arborescence que app/)
+│   └── functional/   # l'API à travers HTTP, un fichier par endpoint
 ├── data/raw/     # relevé 2016 de Seattle, jamais modifié
 ├── artifacts/    # modèle entraîné, produit par le script d'entraînement
 └── docs/         # documentation technique et schéma de la base

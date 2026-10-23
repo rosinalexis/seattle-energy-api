@@ -25,6 +25,10 @@ ci/pipeline-qualite
 docs/schema-base
 ```
 
+Exception : les branches de tests sont préfixées **`tests/`** et non `test/`. Git range les branches
+comme des fichiers : tant que la branche d'environnement `test` existe, il ne peut pas exister de
+« dossier » `test/`.
+
 Le code avance toujours dans le même sens, uniquement par pull request :
 
 ```
@@ -109,7 +113,16 @@ Après une fusion dans `dev`, `test` ou `main`, et seulement si `quality` est ve
 - **Secrets** dans des variables d'environnement (`.env` en local, secrets GitHub en CI), jamais dans
   le code. `.env` n'est jamais commité.
 - **Dépendances** : uniquement celles qu'on utilise ; les outils de dev vont dans le groupe `dev`.
-- **Tests** : chaque fonction et chaque endpoint ont leurs tests, cas d'erreur compris.
+- **Tests** : chaque fonction et chaque endpoint ont leurs tests, cas d'erreur compris, rangés en
+  deux familles :
+
+  | Dossier             | Ce qui est testé                                   | Organisation                     |
+  |---------------------|----------------------------------------------------|----------------------------------|
+  | `tests/unit/`       | une fonction à la fois, sans HTTP                  | même arborescence que `app/`     |
+  | `tests/functional/` | l'API à travers HTTP, comme un vrai client         | un fichier par endpoint          |
+
+  Les fixtures partagées sont dans `tests/conftest.py`. Une suite se lance seule :
+  `uv run pytest tests/unit` (rapide, pendant le développement) ou `uv run pytest tests/functional`.
 - **Commentaires** en français, pour expliquer le pourquoi, pas le quoi.
 
 ## Expérimentation ML
