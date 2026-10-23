@@ -133,8 +133,8 @@ def vers_champs_metier(df: pd.DataFrame) -> pd.DataFrame:
             "part_usage_principal": part_usage_principal(df),
             # Seule la présence de la source est utilisée, jamais sa quantité : la quantité
             # consommée est une partie de la réponse (data leakage).
-            "utilise_gaz": (df["NaturalGas(kBtu)"] > 0).astype(int),
-            "utilise_vapeur": (df["SteamUse(kBtu)"] > 0).astype(int),
+            "utilise_gaz": df["NaturalGas(kBtu)"] > 0,
+            "utilise_vapeur": df["SteamUse(kBtu)"] > 0,
         },
         index=df.index,
     )
@@ -151,7 +151,11 @@ def consommation_anormale(df: pd.DataFrame) -> pd.Series:
 
 
 def preparer_donnees(releve: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
-    """Du relevé brut aux données d'entraînement : (champs métier, consommation)."""
+    """Du relevé brut aux données d'entraînement : (champs métier, consommation).
+
+    Les lignes sont indexées par l'identifiant du bâtiment dans le relevé (OSEBuildingID),
+    qui sert aussi de clé primaire en base.
+    """
     df = nettoyer(releve)
-    df = df[~consommation_anormale(df)]
+    df = df[~consommation_anormale(df)].set_index("OSEBuildingID")
     return vers_champs_metier(df), df[TARGET]
