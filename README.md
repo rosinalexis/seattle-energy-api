@@ -12,7 +12,7 @@ base PostgreSQL, tests automatisés et pipeline CI/CD.
 
 ## Installation
 
-Prérequis : [uv](https://docs.astral.sh/uv/) et Git.
+Prérequis : [uv](https://docs.astral.sh/uv/), Git et Docker (pour PostgreSQL).
 
 ```bash
 git clone https://github.com/rosinalexis/seattle-energy-api.git
@@ -35,18 +35,34 @@ uv export --format requirements-txt > requirements.txt
 ### Configuration
 
 Les réglages propres à chaque environnement sont lus dans les variables d'environnement. En local,
-copier le modèle et renseigner une vraie clé :
+copier le modèle et remplacer chaque `change-moi` par une valeur aléatoire :
 
 ```bash
 cp .env.example .env
-uv run python -c "import secrets; print(secrets.token_urlsafe(32))"   # à coller dans API_KEY
+uv run python -c "import secrets; print(secrets.token_urlsafe(32))"   # une valeur par secret
 ```
 
-| Variable  | Rôle                                                     |
-|-----------|----------------------------------------------------------|
-| `API_KEY` | clé que les clients envoient dans l'en-tête `X-API-Key` (32 caractères minimum) |
+| Variable                                       | Rôle                                                               |
+|------------------------------------------------|--------------------------------------------------------------------|
+| `API_KEY`                                      | clé que les clients envoient dans `X-API-Key` (32 caractères min.) |
+| `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | compte administrateur de PostgreSQL                           |
+| `API_DB_USER`, `API_DB_PASSWORD`               | rôle restreint de l'API dans PostgreSQL                            |
+| `DATABASE_URL`                                 | connexion de l'API (rôle restreint), construite à partir des précédentes |
+| `DATABASE_ADMIN_URL`                           | connexion des scripts d'administration (compte administrateur)     |
 
-Le fichier `.env` n'est jamais commité. Sans `API_KEY` valide, l'API refuse de démarrer.
+Le fichier `.env` n'est jamais commité. Sans `API_KEY` valide ou sans base joignable, l'API refuse
+de démarrer.
+
+### Base de données
+
+```bash
+docker compose up -d db                  # PostgreSQL 18
+uv run python -m scripts.create_db       # rôle de l'API, tables, droits
+uv run python -m scripts.load_dataset    # les 1 582 bâtiments du dataset
+```
+
+Schéma, choix de conception, gestion des accès et scripts d'interrogation :
+[docs/base_de_donnees.md](docs/base_de_donnees.md).
 
 ## Utilisation
 
@@ -102,8 +118,11 @@ curl -X POST http://localhost:8000/predict \
 ```
 
 ```json
-{"consommation_kbtu": 7113386.17}
+{"id": 42, "consommation_kbtu": 7113386.17}
 ```
+
+Chaque appel est tracé en base : le bâtiment envoyé dans `prediction_entrees`, la réponse du modèle
+dans `prediction_sorties`. L'`id` renvoyé permet de retrouver la prédiction.
 
 Codes de réponse :
 
@@ -116,6 +135,19 @@ Codes de réponse :
 Le domaine accepté reprend celui des données d'entraînement (13 quartiers, 23 types d'usage, années
 1900 à 2016, 1 à 76 étages…) : en dehors, le modèle n'a jamais rien vu et sa prédiction ne vaudrait
 rien. Le détail de chaque champ est dans Swagger.
+
+## Tests
+
+```bash
+docker compose up -d db                                  # les tests utilisent un vrai PostgreSQL
+uv run pytest --cov=app                                  # 98 tests, couverture 100 % (minimum 95 %)
+uv run pytest tests/unit                                 # tests unitaires seuls
+uv run pytest tests/functional                           # tests fonctionnels (API) seuls
+```
+
+La suite vérifie aussi les **performances du modèle** (R² ≥ 0,70 et erreur relative médiane ≤ 40 %
+sur le jeu de test), sa **reproductibilité** et son **comportement** sur des cas d'usage réels.
+Stratégie détaillée et rapports : [CONTRIBUTING.md](CONTRIBUTING.md#code).
 
 ## Déploiement
 
@@ -131,18 +163,15 @@ Registry (GHCR) après chaque fusion dans une branche d'environnement :
 Chaque image est aussi étiquetée avec le hash du commit dont elle est issue. Avant publication, la CI
 lance l'image et l'appelle pour de vrai (test de fumée), avec la clé d'API de l'environnement.
 
-Lancer la version de production sur n'importe quelle machine équipée de Docker :
+Lancer la production (API et PostgreSQL) sur n'importe quelle machine équipée de Docker :
 
 ```bash
-docker run -d -p 8000:8000 --env-file .env ghcr.io/rosinalexis/seattle-energy-api:prod
+docker compose pull && docker compose up -d     # image :prod (IMAGE_TAG=test pour la recette)
+uv run python -m scripts.create_db              # au premier lancement
+uv run python -m scripts.load_dataset
 ```
 
-Ou construire l'image en local :
-
-```bash
-docker build -t seattle-energy-api .
-docker run -d -p 8000:8000 --env-file .env seattle-energy-api
-```
+Ou construire l'image depuis le dépôt : `docker compose up -d --build`.
 
 L'image contient le modèle, entraîné pendant sa construction ; elle ne contient ni le `.env`, ni les
 tests, ni les outils de développement. L'API y tourne sous un utilisateur sans privilèges, et Docker
@@ -162,6 +191,9 @@ hébergeur Docker.
 - **Secrets** hors du code : `.env` en local (ignoré par Git et par Docker), secrets des
   environnements GitHub `dev`, `test` et `prod` en CI, chacun limité à sa branche.
 - **Conteneur sans privilèges** : l'API ne tourne pas en root.
+- **Accès à la base restreint** : l'API utilise un rôle PostgreSQL qui ne peut que lire le dataset
+  et ajouter des prédictions (ni modification ni suppression) ; le port de la base n'est ouvert que
+  sur `127.0.0.1`. Détails : [docs/base_de_donnees.md](docs/base_de_donnees.md#gestion-des-accès).
 - **Validation stricte des entrées** (Pydantic) : types, bornes, listes fermées, champs inconnus
   refusés.
 - **CI en lecture seule** (`permissions: contents: read`).
@@ -174,15 +206,20 @@ seattle-energy-api/
 │   ├── main.py       # création de l'application, routes de supervision
 │   ├── config.py     # constantes, chemins et réglages (une seule source de vérité)
 │   ├── securite.py   # authentification par clé d'API
+│   ├── database.py   # connexion à PostgreSQL
 │   ├── routers/      # endpoints HTTP (contrôleurs)
 │   ├── schemas/      # contrats d'entrée et de sortie (Pydantic)
 │   ├── services/     # logique métier, indépendante de HTTP
+│   ├── models/       # tables SQLAlchemy
 │   └── ml/           # préparation des données et pipeline du modèle
-├── scripts/      # scripts lancés à la main : entraînement, création de la base…
-├── tests/        # tests unitaires et fonctionnels
+├── scripts/      # entraînement, création et chargement de la base, interrogation
+├── docker-compose.yml  # PostgreSQL et l'API
+├── tests/
+│   ├── unit/         # une fonction à la fois (même arborescence que app/)
+│   └── functional/   # l'API à travers HTTP, un fichier par endpoint
 ├── data/raw/     # relevé 2016 de Seattle, jamais modifié
 ├── artifacts/    # modèle entraîné, produit par le script d'entraînement
-└── docs/         # documentation technique et schéma de la base
+└── docs/         # schéma et documentation de la base, exemples d'entrées/sorties (CSV)
 ```
 
 ## Contribuer

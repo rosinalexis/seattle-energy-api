@@ -25,6 +25,10 @@ ci/pipeline-qualite
 docs/schema-base
 ```
 
+Exception : les branches de tests sont préfixées **`tests/`** et non `test/`. Git range les branches
+comme des fichiers : tant que la branche d'environnement `test` existe, il ne peut pas exister de
+« dossier » `test/`.
+
 Le code avance toujours dans le même sens, uniquement par pull request :
 
 ```
@@ -109,7 +113,39 @@ Après une fusion dans `dev`, `test` ou `main`, et seulement si `quality` est ve
 - **Secrets** dans des variables d'environnement (`.env` en local, secrets GitHub en CI), jamais dans
   le code. `.env` n'est jamais commité.
 - **Dépendances** : uniquement celles qu'on utilise ; les outils de dev vont dans le groupe `dev`.
-- **Tests** : chaque fonction et chaque endpoint ont leurs tests, cas d'erreur compris.
+- **Tests** : chaque fonction et chaque endpoint ont leurs tests, cas d'erreur compris, rangés en
+  deux familles :
+
+  | Dossier             | Ce qui est testé                                   | Organisation                     |
+  |---------------------|----------------------------------------------------|----------------------------------|
+  | `tests/unit/`       | une fonction à la fois, sans HTTP                  | même arborescence que `app/`     |
+  | `tests/functional/` | l'API à travers HTTP, comme un vrai client         | un fichier par endpoint          |
+
+  Les fixtures partagées sont dans `tests/conftest.py`. Une suite se lance seule :
+  `uv run pytest tests/unit` (rapide, pendant le développement) ou `uv run pytest tests/functional`.
+
+  Ce que la suite garantit :
+
+  | Famille de tests             | Exemples                                                              |
+  |------------------------------|-----------------------------------------------------------------------|
+  | Performance du modèle        | R² ≥ 0,70 et erreur relative médiane ≤ 40 % sur le jeu de test        |
+  | Reproductibilité             | un réentraînement donne exactement les mêmes prédictions              |
+  | Cas d'usage réels            | chaque type d'usage et chaque quartier obtiennent une prédiction      |
+  | Comportement attendu         | un bâtiment 10 fois plus grand consomme plus ; un hôpital plus qu'un garde-meubles |
+  | Cas limites                  | valeurs exactement aux bornes acceptées, juste au-delà refusées       |
+  | Scénarios d'erreur           | clé absente ou fausse, JSON mal formé, panne du modèle (500, tentative tracée), démarrage sans modèle ou sans base |
+  | Base de données              | traçabilité des entrées et sorties, droits du rôle de l'API           |
+
+  Les tests qui touchent la base tournent contre un vrai PostgreSQL (`docker compose up -d db` en
+  local), chacun dans une transaction annulée à la fin.
+
+- **Couverture** : 95 % minimum (`fail_under` dans `pyproject.toml`), sinon pytest échoue, en local
+  comme en CI. Rapport HTML en local :
+  ```bash
+  uv run pytest --cov=app --cov-report=html:rapports/couverture   # puis ouvrir rapports/couverture/index.html
+  ```
+  En CI, le résumé s'affiche sur la page du run, et les rapports HTML (couverture) et JUnit (tests)
+  sont téléchargeables dans les artefacts `rapports-push` et `rapports-pull_request`.
 - **Commentaires** en français, pour expliquer le pourquoi, pas le quoi.
 
 ## Expérimentation ML

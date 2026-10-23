@@ -11,6 +11,12 @@ on:
 permissions:
   contents: read
 
+# Base PostgreSQL éphémère de la CI : créée pour le job, détruite à la fin, joignable seulement
+# depuis la machine de la CI. Ses mots de passe ne protègent rien, ce ne sont pas des secrets.
+env:
+  DATABASE_ADMIN_URL: postgresql+psycopg://admin:admin-ci@127.0.0.1:5432/seattle_energy
+  DATABASE_URL: postgresql+psycopg://api_seattle:api-ci@127.0.0.1:5432/seattle_energy
+
 jobs:
   quality:
     # Un nom de check par événement : seul « quality (pull_request) », qui teste le
@@ -20,6 +26,18 @@ jobs:
     runs-on: ubuntu-latest
     # L'énoncé alerte sur les pipelines de plus de 10 minutes : on coupe avant.
     timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: admin
+          POSTGRES_PASSWORD: admin-ci
+          POSTGRES_DB: seattle_energy
+        ports:
+          - 5432:5432
+        # Le job ne démarre qu'une fois PostgreSQL prêt à répondre.
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 3s --health-retries 10
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10.3.2
@@ -29,7 +47,23 @@ jobs:
       - run: uv run ruff format --check .
       # Le modèle n'est pas versionné (reproductible, 23 Mo) : les tests de l'API en ont besoin.
       - run: uv run python -m scripts.train_model
-      - run: uv run pytest --cov=app --cov-report=term-missing
+      # Mise en place de la base comme en production : vérifie aussi que les scripts marchent.
+      - run: uv run python -m scripts.create_db
+      - run: uv run python -m scripts.load_dataset
+      # Échoue si la couverture passe sous le seuil fixé dans pyproject.toml (fail_under).
+      - run: >-
+          uv run pytest --cov=app --cov-report=term-missing
+          --cov-report=html:rapports/couverture --junitxml=rapports/tests.xml
+      # always() : les rapports sont publiés même si des tests échouent, c'est là qu'ils servent.
+      - name: Résumé de la couverture sur la page du run
+        if: always()
+        run: uv run coverage report --format=markdown >> "$GITHUB_STEP_SUMMARY"
+      - name: Publier les rapports de tests et de couverture
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: rapports-${{ github.event_name }}
+          path: rapports/
 
   deploy:
     # Uniquement après une fusion dans une branche d'environnement, et si la qualité est validée.
@@ -44,6 +78,17 @@ jobs:
       contents: read
       # Publier l'image sur GitHub Container Registry.
       packages: write
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: admin
+          POSTGRES_PASSWORD: admin-ci
+          POSTGRES_DB: seattle_energy
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 3s --health-retries 10
     env:
       IMAGE: ghcr.io/${{ github.repository }}
       ENVIRONNEMENT: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
@@ -58,8 +103,13 @@ jobs:
         env:
           API_KEY: ${{ secrets.API_KEY }}
         run: |
-          # -e API_KEY sans valeur : la clé est reprise de l'environnement, jamais écrite en clair.
-          docker run -d --name api -p 8000:8000 -e API_KEY "$IMAGE:$GITHUB_SHA"
+          # --network host : les conteneurs joignent la base de la CI sur 127.0.0.1.
+          # -e VARIABLE sans valeur : reprise de l'environnement, jamais écrite en clair.
+          # 1. Mise en place de la base avec le compte administrateur, dans un conteneur jetable.
+          docker run --rm --network host -e DATABASE_ADMIN_URL -e DATABASE_URL \
+            "$IMAGE:$GITHUB_SHA" .venv/bin/python -m scripts.create_db
+          # 2. L'API, qui ne reçoit que son rôle restreint.
+          docker run -d --name api --network host -e API_KEY -e DATABASE_URL "$IMAGE:$GITHUB_SHA"
           for i in $(seq 1 30); do curl -sf localhost:8000/health && break; sleep 1; done
           # Le bâtiment envoyé est l'exemple de la documentation Swagger : un seul exemple à maintenir.
           curl -sf localhost:8000/openapi.json | jq '.components.schemas.Batiment.examples[0]' > batiment.json

@@ -21,3 +21,6 @@ htmlcov/
 
 # Modèle entraîné : régénéré par scripts/train_model.py (reproductible, 23 Mo)
 artifacts/
+
+# Rapports de tests et de couverture (régénérés à chaque lancement, publiés par la CI)
+rapports/
