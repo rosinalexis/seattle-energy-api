@@ -1,0 +1,13 @@
+# Ce qui n'entre jamais dans l'image : secrets, environnement local, fichiers de développement.
+.env
+.venv/
+.git/
+.github/
+artifacts/
+tests/
+docs/
+**/__pycache__/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
