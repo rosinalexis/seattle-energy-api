@@ -27,4 +27,49 @@ jobs:
       - run: uv sync --locked
       - run: uv run ruff check .
       - run: uv run ruff format --check .
+      # Le modèle n'est pas versionné (reproductible, 23 Mo) : les tests de l'API en ont besoin.
+      - run: uv run python -m scripts.train_model
       - run: uv run pytest --cov=app --cov-report=term-missing
+
+  deploy:
+    # Uniquement après une fusion dans une branche d'environnement, et si la qualité est validée.
+    needs: quality
+    if: github.event_name == 'push' && contains(fromJSON('["dev", "test", "main"]'), github.ref_name)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # main déploie l'environnement prod ; dev et test portent le nom de leur environnement.
+    # L'environnement fournit ses propres secrets et n'accepte que sa branche.
+    environment: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
+    permissions:
+      contents: read
+      # Publier l'image sur GitHub Container Registry.
+      packages: write
+    env:
+      IMAGE: ghcr.io/${{ github.repository }}
+      ENVIRONNEMENT: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Construire l'image
+        run: docker build -t "$IMAGE:$GITHUB_SHA" .
+
+      # On ne publie pas une image qui ne démarre pas : on la lance et on l'appelle pour de vrai.
+      - name: Test de fumée
+        env:
+          API_KEY: ${{ secrets.API_KEY }}
+        run: |
+          # -e API_KEY sans valeur : la clé est reprise de l'environnement, jamais écrite en clair.
+          docker run -d --name api -p 8000:8000 -e API_KEY "$IMAGE:$GITHUB_SHA"
+          for i in $(seq 1 30); do curl -sf localhost:8000/health && break; sleep 1; done
+          # Le bâtiment envoyé est l'exemple de la documentation Swagger : un seul exemple à maintenir.
+          curl -sf localhost:8000/openapi.json | jq '.components.schemas.Batiment.examples[0]' > batiment.json
+          curl -sf -X POST localhost:8000/predict \
+            -H "X-API-Key: $API_KEY" -H "Content-Type: application/json" -d @batiment.json
+
+      - name: Publier sur GHCR
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          # Deux étiquettes : le commit exact (traçabilité) et l'environnement (dernière version déployée).
+          docker tag "$IMAGE:$GITHUB_SHA" "$IMAGE:$ENVIRONNEMENT"
+          docker push "$IMAGE:$GITHUB_SHA"
+          docker push "$IMAGE:$ENVIRONNEMENT"

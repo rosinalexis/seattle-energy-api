@@ -90,6 +90,12 @@ Les PR vers `dev` et `test` peuvent être fusionnées automatiquement dès que l
 Chaque branche longue correspond à un **environnement GitHub** (`dev`, `test`, `prod`), qui porte ses
 propres secrets et n'accepte de déploiement que depuis sa branche.
 
+Après une fusion dans `dev`, `test` ou `main`, et seulement si `quality` est vert, le job `deploy` :
+
+1. construit l'image Docker (le modèle y est entraîné) ;
+2. la lance et l'appelle pour de vrai (test de fumée), avec la clé d'API de l'environnement ;
+3. la publie sur GHCR, étiquetée avec le hash du commit et le nom de l'environnement.
+
 ## Code
 
 - **Lint et formatage** : `ruff`, lignes de 100 caractères. Avant de pousser :
