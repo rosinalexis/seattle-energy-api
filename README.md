@@ -1,5 +1,7 @@
 # Seattle Energy API
 
+[![CI](https://github.com/rosinalexis/seattle-energy-api/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/rosinalexis/seattle-energy-api/actions/workflows/ci.yml)
+
 API de prédiction de la consommation d'énergie des bâtiments non résidentiels de Seattle.
 
 Ce projet met en production le modèle de machine learning du projet 3 (random forest entraîné sur le
@@ -42,57 +44,11 @@ seattle-energy-api/
 └── docs/         # documentation technique et schéma de la base
 ```
 
-## Conventions Git
+## Contribuer
 
-### Branches
+Branches, commits, pull requests, pipeline CI et standards de code et d'expérimentation ML : voir
+[CONTRIBUTING.md](CONTRIBUTING.md).
 
-Le projet suit le **GitLab Flow** : une branche longue par environnement, et une branche courte par
-fonctionnalité.
-
-| Branche  | Environnement | Rôle                                          |
-|----------|---------------|-----------------------------------------------|
-| `main`   | production    | version livrée, taguée                        |
-| `test`   | test          | recette : la suite de tests complète y tourne |
-| `dev`    | développement | intégration des fonctionnalités               |
-
-Les branches de travail partent de `dev` et sont nommées `<type>/<sujet-court>`, avec les mêmes types
-que les commits :
-
-```
-feat/api-prediction
-ci/pipeline-tests
-docs/schema-base
-```
-
-Le code avance toujours dans le même sens, uniquement par pull request :
-
-```
-<type>/<sujet>  →  dev  →  test  →  main
-```
-
-Aucun push direct sur `dev`, `test` ou `main`.
-
-### Commits
-
-Les messages suivent les [Conventional Commits](https://www.conventionalcommits.org/fr/) :
-
-```
-<type>: <description courte, au présent>
-```
-
-| Type       | Usage                                        |
-|------------|----------------------------------------------|
-| `feat`     | nouvelle fonctionnalité                      |
-| `fix`      | correction de bug                            |
-| `test`     | ajout ou modification de tests               |
-| `docs`     | documentation uniquement                     |
-| `ci`       | pipeline CI/CD                               |
-| `refactor` | réécriture sans changement de comportement   |
-| `chore`    | configuration, dépendances, outillage        |
-
-Exemple : `feat: ajoute l'endpoint de prédiction`
-
-### Versions
-
-Chaque fusion dans `main` reçoit un tag [SemVer](https://semver.org/lang/fr/) `vMAJEUR.MINEUR.CORRECTIF`
-(`v0.1.0`, `v0.2.0`…). La version `v1.0.0` correspond à la livraison finale.
+En résumé : une branche `<type>/<sujet>` par fonctionnalité, puis
+`dev` (développement) → `test` (recette) → `main` (production, taguée), uniquement par pull request
+validée par la CI.
