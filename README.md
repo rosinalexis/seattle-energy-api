@@ -10,6 +10,21 @@ base PostgreSQL, tests automatisés et pipeline CI/CD.
 
 > Contexte : projet 5 du parcours AI Engineer d'OpenClassrooms, réalisé pour le client fictif Futurisys.
 
+**En bref** : le client envoie les caractéristiques d'un bâtiment (taille, usage, âge, quartier…),
+l'API répond sa consommation annuelle estimée, avec une erreur typique d'environ 40 %. Chaque
+échange est enregistré en base.
+
+## Documentation
+
+| Document                                            | Contenu                                                          |
+|-----------------------------------------------------|------------------------------------------------------------------|
+| Ce README                                           | installation, utilisation, tests, déploiement, sécurité          |
+| Swagger : `/docs` (API lancée)                      | endpoints, schémas, exemples, essai en direct                    |
+| [docs/modele.md](docs/modele.md)                    | fiche du modèle : données, performances, limites, maintenance et protocole de mise à jour |
+| [docs/architecture.md](docs/architecture.md)        | architecture, parcours d'une requête, CI/CD, choix techniques justifiés |
+| [docs/base_de_donnees.md](docs/base_de_donnees.md)  | schéma UML, gestion des accès, scripts d'interrogation           |
+| [CONTRIBUTING.md](CONTRIBUTING.md)                  | conventions Git, pipeline CI, standards de code, de tests et d'expérimentation ML |
+
 ## Installation
 
 Prérequis : [uv](https://docs.astral.sh/uv/), Git et Docker (pour PostgreSQL).
@@ -82,6 +97,8 @@ aléatoire fixés).
 | R²                               | 0,711         |
 | MAE                              | 3,75 M kBtu   |
 | Erreur relative médiane          | 39,8 %        |
+
+Performances détaillées, limites et protocole de mise à jour : [docs/modele.md](docs/modele.md).
 
 ### 2. Lancer l'API
 
