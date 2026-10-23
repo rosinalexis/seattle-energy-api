@@ -32,6 +32,14 @@ app = FastAPI(
         "**Authentification** : envoyer la clé d'API dans l'en-tête `X-API-Key`."
     ),
     version=VERSION,
+    # Description de chaque groupe d'endpoints, affichée dans Swagger.
+    openapi_tags=[
+        {
+            "name": "Prédiction",
+            "description": "Consommation prédite par le modèle. Chaque appel est tracé en base.",
+        },
+        {"name": "Supervision", "description": "État de l'API, sans authentification."},
+    ],
     lifespan=lifespan,
 )
 app.include_router(prediction.router)
