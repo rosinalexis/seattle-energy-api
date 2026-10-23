@@ -4,11 +4,13 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends
 from sklearn.pipeline import Pipeline
+from sqlalchemy.orm import Session
 
+from app.database import get_session
 from app.ml.modele import charger_modele
 from app.schemas.prediction import Batiment, Prediction
 from app.securite import verifier_cle_api
-from app.services.prediction import predire_consommation
+from app.services.prediction import predire_et_enregistrer
 
 router = APIRouter(tags=["Prédiction"], dependencies=[Depends(verifier_cle_api)])
 
@@ -23,8 +25,14 @@ router = APIRouter(tags=["Prédiction"], dependencies=[Depends(verifier_cle_api)
 )
 def predire(
     batiment: Batiment,
-    # Le modèle est injecté plutôt qu'importé : les tests peuvent le remplacer.
+    # Le modèle et la session sont injectés plutôt que créés ici : les tests peuvent les remplacer.
     modele: Annotated[Pipeline, Depends(charger_modele)],
+    session: Annotated[Session, Depends(get_session)],
 ) -> Prediction:
-    """Prédit la consommation annuelle (kBtu) à partir de caractéristiques connues sans relevé."""
-    return Prediction(consommation_kbtu=predire_consommation(batiment, modele))
+    """Prédit la consommation annuelle (kBtu) à partir de caractéristiques connues sans relevé.
+
+    L'entrée et la prédiction sont enregistrées en base ; l'identifiant renvoyé permet de les
+    retrouver.
+    """
+    sortie = predire_et_enregistrer(batiment, modele, session)
+    return Prediction(id=sortie.id, consommation_kbtu=sortie.consommation_kbtu)
